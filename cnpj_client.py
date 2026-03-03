@@ -36,49 +36,26 @@ _MUNICIPIO_LOOKUP: dict = {}
 
 def _load_municipios() -> None:
     """
-    Load RELATORIO_DTB_BRASIL_2024_MUNICIPIOS.xls from the dim_municipality
-    subfolder that lives next to this script.
+    Load municipios_lookup.csv from the same directory as this script.
 
     Expected layout:
         cnpj_bulk/
         ├── app.py
         ├── cnpj_client.py
-        └── dim_municipality/
-            └── RELATORIO_DTB_BRASIL_2024_MUNICIPIOS.xls   ← this file
+        └── municipios_lookup.csv   ← columns: nome_uf_norm, nome_municipio_norm, codigo_municipio_completo
     """
     base_dir  = os.path.dirname(os.path.abspath(__file__))
-    xls_path  = os.path.join(base_dir, "dim_municipality",
-                             "RELATORIO_DTB_BRASIL_2024_MUNICIPIOS.xls")
+    csv_path  = os.path.join(base_dir, "municipios_lookup.csv")
 
-    if not os.path.exists(xls_path):
-        logging.warning(f"Municipality file not found at: {xls_path}")
+    if not os.path.exists(csv_path):
+        logging.warning(f"Municipality file not found at: {csv_path}")
         return
     try:
-        # The XLS has 6 metadata rows before the real header (row index 6)
-        df = pd.read_excel(xls_path, dtype=str, header=6, engine="xlrd")
-        # Drop completely empty rows/cols left by XLS metadata
-        df = df.dropna(how='all').dropna(axis=1, how='all')
-
-        # The XLS columns we need:
-        #   "Nome_UF"                   → state full name  (e.g. "São Paulo")
-        #   "Nome_Município"             → city name        (e.g. "São Paulo")
-        #   "Código Município Completo" → 7-digit IBGE code (e.g. 3550308)
-        df = df.rename(columns=lambda c: c.strip())
-
-        required = ["Nome_UF", "Nome_Município", "Código Município Completo"]
-        missing  = [c for c in required if c not in df.columns]
-        if missing:
-            logging.error(f"Missing columns in municipality file: {missing}. Found: {df.columns.tolist()}")
-            return
-
-        df["nome_uf_norm"]              = df["Nome_UF"].str.upper().str.strip()
-        df["nome_municipio_norm"]       = df["Nome_Município"].str.upper().str.strip()
-        df["codigo_municipio_completo"] = df["Código Município Completo"].str.strip()
-
+        df = pd.read_csv(csv_path, dtype=str, encoding="utf-8")
         for _, row in df.iterrows():
-            key = (row["nome_uf_norm"], row["nome_municipio_norm"])
-            _MUNICIPIO_LOOKUP[key] = row["codigo_municipio_completo"]
-        logging.info(f"Loaded {len(_MUNICIPIO_LOOKUP)} municipalities from XLS")
+            key = (row["nome_uf_norm"].strip(), row["nome_municipio_norm"].strip())
+            _MUNICIPIO_LOOKUP[key] = row["codigo_municipio_completo"].strip()
+        logging.info(f"Loaded {len(_MUNICIPIO_LOOKUP)} municipalities from CSV")
     except Exception as e:
         logging.error(f"Failed to load municipios_lookup.csv: {e}")
 
